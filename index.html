@@ -14,7 +14,7 @@
     --ink: #f2eefb; --ink-soft: rgba(242,238,251,0.66); --ink-faint: rgba(242,238,251,0.42);
     --surface: rgba(255,255,255,0.045); --surface-strong: rgba(255,255,255,0.09);
     --border: rgba(242,238,251,0.12); --ease-out: cubic-bezier(0.16,1,0.3,1);
-    --good: #7fe0a8; --bad: #f28b8b;
+    --good: #7fe0a8; --bad: #f28b8b; --warn: #f2c46b;
 }
 *,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
 body {
@@ -26,6 +26,7 @@ body {
 .gate-wrap { min-height:80vh; display:flex; align-items:center; justify-content:center; }
 .gate-wrap .panel { max-width:420px; }
 h1 { font-family:'Fraunces', serif; font-weight:600; font-size:1.5rem; margin-bottom:6px; }
+h2 { font-family:'Fraunces', serif; font-weight:600; font-size:1.1rem; margin-bottom:4px; }
 .sub { font-size:0.82rem; color: var(--ink-faint); margin-bottom:22px; line-height:1.5; }
 .field { margin-bottom:0; }
 .field label { display:block; font-size:0.68rem; letter-spacing:1.5px; text-transform:uppercase; color: var(--ink-faint); margin-bottom:6px; }
@@ -43,10 +44,19 @@ button { cursor:pointer; font-family:'Outfit', sans-serif; }
 }
 .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 26px var(--purple-glow); }
 .btn-primary:disabled { opacity:0.45; cursor:default; transform:none; box-shadow:none; }
+.btn-secondary {
+    padding:11px 18px; border-radius:100px; border:1px solid var(--border);
+    background: var(--surface-strong); color: var(--ink); font-weight:700; font-size:0.78rem;
+    letter-spacing:0.3px; transition: transform 0.25s var(--ease-out), box-shadow 0.25s, border-color 0.25s;
+}
+.btn-secondary:hover { border-color: rgba(180,142,224,0.4); box-shadow: 0 8px 20px var(--purple-glow); transform: translateY(-1px); }
 .gate input { text-align:center; letter-spacing:3px; }
 .msg { font-size:0.82rem; margin-top:10px; line-height:1.5; min-height:1em; }
 .msg.success { color: var(--good); }
 .msg.error { color: var(--bad); }
+
+.setup-note { background: rgba(242,196,107,0.1); border:1px solid rgba(242,196,107,0.3); border-radius:14px; padding:14px 16px; font-size:0.8rem; color: var(--ink-soft); line-height:1.6; margin-bottom:26px; }
+.setup-note strong { color: var(--warn); }
 
 /* add-order form */
 .add-order-form { display:grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap:10px; align-items:end; margin-bottom:8px; }
@@ -70,12 +80,23 @@ td.ord-email { color: var(--ink-soft); }
 .send-btn:hover:not(:disabled) { border-color: rgba(180,142,224,0.4); box-shadow: 0 8px 20px var(--purple-glow); transform: translateY(-1px); }
 .send-btn:disabled { opacity:0.4; cursor:default; transform:none; box-shadow:none; }
 .sent-tag { color: var(--good); font-size:0.76rem; font-weight:600; }
+.server-note { display:block; font-size:0.68rem; color: var(--ink-faint); margin-top:4px; max-width:220px; line-height:1.4; }
 .remove-btn { background:none; border:none; color: var(--ink-faint); font-size:0.8rem; text-decoration:underline; cursor:pointer; }
 .remove-btn:hover { color: var(--bad); }
 .empty-note { text-align:center; padding:30px 10px; color: var(--ink-faint); font-size:0.85rem; }
 .small-link { display:inline-block; margin-top:22px; font-size:0.76rem; color: var(--ink-faint); text-decoration:none; }
 .small-link:hover { color: var(--ink-soft); }
 .top-row { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; }
+
+/* history */
+.history-section { margin-top:36px; padding-top:28px; border-top:1px solid var(--border); }
+.history-head { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+.history-list { max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:14px; }
+.history-row { display:flex; gap:12px; padding:10px 14px; font-size:0.78rem; border-bottom:1px solid var(--border); }
+.history-row:last-child { border-bottom:none; }
+.history-time { color: var(--ink-faint); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.history-text { color: var(--ink-soft); }
+.history-empty { padding:20px; text-align:center; color: var(--ink-faint); font-size:0.82rem; }
 </style>
 </head>
 <body>
@@ -102,6 +123,10 @@ td.ord-email { color: var(--ink-soft); }
             </div>
         </div>
 
+        <p class="setup-note" id="activationNote">
+            <strong>One-time setup:</strong> the first time this page sends an email from a new device or after moving it to a new web address, FormSubmit needs you to confirm it. Send one email below, then check <strong id="ordEmailDisplay"></strong> (and spam) for a message from FormSubmit and click "Activate Form" in it. Until you do that, emails sent from here won't actually arrive, even though this page will say they were sent.
+        </p>
+
         <form class="add-order-form" id="addOrderForm">
             <div class="field"><label for="newOrdNumber">Order number</label><input type="text" id="newOrdNumber" placeholder="SB-260920-1234" required></div>
             <div class="field"><label for="newOrdName">Customer name</label><input type="text" id="newOrdName" required></div>
@@ -126,6 +151,20 @@ td.ord-email { color: var(--ink-soft); }
             <p class="empty-note" id="emptyNote" style="display:none;">No orders yet — add one above when you get an order notification email.</p>
         </div>
 
+        <div class="history-section">
+            <div class="history-head">
+                <div>
+                    <h2>History</h2>
+                    <p class="sub" style="margin-bottom:0;">A running log of everything done on this page (this device only).</p>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" class="btn-secondary" id="downloadHistoryBtn">Download .txt</button>
+                    <button type="button" class="btn-secondary" id="clearHistoryBtn">Clear</button>
+                </div>
+            </div>
+            <div class="history-list" id="historyList"></div>
+        </div>
+
         <a href="#" class="small-link" id="lockLink">Lock this page</a>
     </div>
 </div>
@@ -133,7 +172,9 @@ td.ord-email { color: var(--ink-soft); }
 <script>
 /* ─── CONFIG ─── */
 const ORDER_EMAIL = "scorbunnycards@gmail.com";     // your inbox — also gets a record of every "being prepared" email sent
-const ADMIN_PASSCODE = "Scorbunny1234.";            // ⚠️ change this before using — see note below
+const ADMIN_PASSCODE = "CHANGE_ME_1234";            // ⚠️ change this before using — see note below
+
+document.getElementById('ordEmailDisplay').textContent = ORDER_EMAIL;
 
 /* ─── very light client-side gate ───
    This only hides the page from casual visitors — it is NOT real security.
@@ -149,6 +190,7 @@ function unlock(){
     mainWrap.style.display = 'block';
     try{ sessionStorage.setItem('sb_admin_unlocked', '1'); }catch(e){}
     renderOrders();
+    renderHistory();
 }
 if(sessionStorage.getItem('sb_admin_unlocked') === '1'){ unlock(); }
 
@@ -181,6 +223,59 @@ function escapeHtml(str){
     return d.innerHTML;
 }
 
+/* ─── history log ─── */
+let history = [];
+try { history = JSON.parse(localStorage.getItem('sb_admin_history') || '[]'); } catch(e){ history = []; }
+
+function logHistory(text){
+    history.unshift({ time: new Date().toISOString(), text });
+    try{ localStorage.setItem('sb_admin_history', JSON.stringify(history)); }catch(e){}
+    renderHistory();
+}
+
+function formatTime(iso){
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+function renderHistory(){
+    const list = document.getElementById('historyList');
+    if(history.length === 0){
+        list.innerHTML = `<p class="history-empty">No history yet.</p>`;
+        return;
+    }
+    list.innerHTML = history.map(h => `
+        <div class="history-row">
+            <span class="history-time">${formatTime(h.time)}</span>
+            <span class="history-text">${escapeHtml(h.text)}</span>
+        </div>
+    `).join('');
+}
+
+document.getElementById('downloadHistoryBtn').addEventListener('click', ()=>{
+    if(history.length === 0){ alert('No history yet.'); return; }
+    const lines = history.map(h => `[${formatTime(h.time)}] ${h.text}`).join('\n');
+    const header = `Scorbunny Cards — Admin History\nExported ${new Date().toLocaleString()}\n${'='.repeat(40)}\n\n`;
+    const blob = new Blob([header + lines], { type:'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `scorbunny-order-history-${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+});
+
+document.getElementById('clearHistoryBtn').addEventListener('click', ()=>{
+    if(history.length === 0) return;
+    if(confirm('Clear the history log? This only clears it from this page — it does not affect any orders.')){
+        history = [];
+        try{ localStorage.setItem('sb_admin_history', JSON.stringify(history)); }catch(e){}
+        renderHistory();
+    }
+});
+
 function renderOrders(){
     const tbody = document.getElementById('ordersBody');
     const emptyNote = document.getElementById('emptyNote');
@@ -202,7 +297,7 @@ function renderOrders(){
             <td><input type="checkbox" class="paid-checkbox" data-idx="${i}" ${o.paid ? 'checked' : ''}></td>
             <td>
                 ${o.emailSent
-                    ? `<span class="sent-tag">Sent ✓</span>`
+                    ? `<span class="sent-tag">Sent ✓</span>${o.serverNote ? `<span class="server-note">${escapeHtml(o.serverNote)}</span>` : ''}`
                     : `<button type="button" class="send-btn" data-idx="${i}" ${o.paid ? '' : 'disabled'}>Send email</button>`
                 }
             </td>
@@ -215,6 +310,7 @@ function renderOrders(){
             const idx = parseInt(e.target.dataset.idx, 10);
             orders[idx].paid = e.target.checked;
             saveOrders();
+            logHistory(`Order ${orders[idx].orderNumber} marked as ${e.target.checked ? 'PAID' : 'not paid'}.`);
             renderOrders();
         });
     });
@@ -225,6 +321,7 @@ function renderOrders(){
         btn.addEventListener('click', e=>{
             const idx = parseInt(e.target.dataset.idx, 10);
             if(confirm(`Remove order ${orders[idx].orderNumber} from this list?`)){
+                logHistory(`Order ${orders[idx].orderNumber} removed from the list.`);
                 orders.splice(idx, 1);
                 saveOrders();
                 renderOrders();
@@ -241,8 +338,9 @@ document.getElementById('addOrderForm').addEventListener('submit', e=>{
     const email = document.getElementById('newOrdEmail').value.trim();
     if(!orderNumber || !name || !email) return;
 
-    orders.unshift({ orderNumber, name, email, paid:false, emailSent:false });
+    orders.unshift({ orderNumber, name, email, paid:false, emailSent:false, serverNote:'' });
     saveOrders();
+    logHistory(`Order ${orderNumber} (${name}, ${email}) added to the list.`);
     renderOrders();
     e.target.reset();
     document.getElementById('newOrdNumber').focus();
@@ -278,12 +376,18 @@ Scorbunny Cards`;
 
     try{
         const res = await fetch(`https://formsubmit.co/ajax/${ORDER_EMAIL}`, { method:'POST', body: fd });
-        if(!res.ok) throw new Error('Request failed');
+        let data = null;
+        try{ data = await res.json(); }catch(e){ /* non-JSON response */ }
+        if(!res.ok) throw new Error((data && data.message) || 'Request failed');
+
         order.emailSent = true;
+        order.serverNote = (data && data.message) ? data.message : '';
         saveOrders();
+        logHistory(`"Being prepared" email sent for order ${order.orderNumber} to ${order.email}.${order.serverNote ? ' Server said: "'+order.serverNote+'"' : ''}`);
         renderOrders();
     } catch(err){
-        alert("Couldn't send that email — check your connection and try again.");
+        logHistory(`FAILED to send "being prepared" email for order ${order.orderNumber} to ${order.email}. (${err.message || err})`);
+        alert("Couldn't send that email — check your connection and try again.\n\nIf this keeps happening, check " + ORDER_EMAIL + " for a FormSubmit activation email (see the yellow note above the order form).");
         if(btn){ btn.disabled = false; btn.textContent = 'Send email'; }
     }
 }
