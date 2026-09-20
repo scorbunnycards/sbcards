@@ -101,6 +101,8 @@ td.ord-email { color: var(--ink-soft); }
 </head>
 <body>
 
+<iframe name="fs_target" id="fsTarget" style="display:none;" title="email delivery frame"></iframe>
+
 <div class="wrap gate-wrap" id="gateWrap">
     <div class="panel">
         <h1>Order Admin</h1>
@@ -189,6 +191,48 @@ window.addEventListener('error', function(e){
 
 document.getElementById('ordEmailDisplay').textContent = ORDER_EMAIL;
 
+/* ─── submit to FormSubmit via a real <form> POST into a hidden iframe ───
+   Some browsers/extensions (ad blockers, privacy tools, some networks) block
+   fetch()/XHR calls to third-party domains, which caused "Failed to fetch"
+   even though FormSubmit itself was reachable. A plain form submission into
+   a hidden iframe is a normal page navigation, not a fetch/XHR call, so it
+   is not caught by that class of blocker. The trade-off: because the iframe
+   loads a page from a different origin, JavaScript is not allowed to read
+   what's inside it, so we can no longer read back FormSubmit's JSON
+   response or detect a true delivery failure the way fetch() could — we can
+   only confirm the browser successfully posted the request. */
+function submitViaHiddenForm(fields){
+    return new Promise((resolve)=>{
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `https://formsubmit.co/${ORDER_EMAIL}`;
+        form.target = 'fs_target';
+        form.style.display = 'none';
+
+        Object.keys(fields).forEach(key=>{
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = fields[key];
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+
+        const iframe = document.getElementById('fsTarget');
+        const onLoad = ()=>{
+            iframe.removeEventListener('load', onLoad);
+            form.remove();
+            resolve();
+        };
+        iframe.addEventListener('load', onLoad);
+        form.submit();
+
+        // safety net in case the iframe's load event never fires
+        setTimeout(()=>{ iframe.removeEventListener('load', onLoad); form.remove(); resolve(); }, 6000);
+    });
+}
+
 /* ─── one-click test email, sent to a real DIFFERENT inbox so you can verify actual customer delivery ─── */
 document.getElementById('testEmailBtn').addEventListener('click', async ()=>{
     const btn = document.getElementById('testEmailBtn');
@@ -210,20 +254,16 @@ document.getElementById('testEmailBtn').addEventListener('click', async ()=>{
 
     btn.disabled = true; btn.textContent = 'Sending...';
 
-    const fd = new FormData();
-    fd.append('email', recipient);
-    fd.append('Test', 'This is a test send from the admin page, addressed to ' + recipient + '.');
-    fd.append('_subject', 'Scorbunny Admin — test email');
-    fd.append('_template', 'table');
-    fd.append('_captcha', 'false');
-    fd.append('_autoresponse', 'This is a test email from the Scorbunny Cards admin page. If you got this at ' + recipient + ', customer emails are working correctly.');
-
     try{
-        const res = await fetch(`https://formsubmit.co/ajax/${ORDER_EMAIL}`, { method:'POST', body: fd });
-        let data = null;
-        try{ data = await res.json(); }catch(e){}
-        if(!res.ok) throw new Error((data && data.message) || ('HTTP ' + res.status));
-        msg.textContent = 'Sent! Server said: "' + ((data && data.message) || 'OK') + '" — now check ' + recipient + ' (and its spam folder).';
+        await submitViaHiddenForm({
+            email: recipient,
+            'Test': 'This is a test send from the admin page, addressed to ' + recipient + '.',
+            '_subject': 'Scorbunny Admin — test email',
+            '_template': 'table',
+            '_captcha': 'false',
+            '_autoresponse': 'This is a test email from the Scorbunny Cards admin page. If you got this at ' + recipient + ', customer emails are working correctly.'
+        });
+        msg.textContent = 'Request sent to ' + recipient + ' — check that inbox (and spam) in a minute or two. If nothing arrives, check ' + ORDER_EMAIL + ' for a FormSubmit activation email.';
         msg.className = 'msg success';
     } catch(err){
         msg.textContent = 'Failed to send: ' + (err.message || err);
@@ -447,26 +487,22 @@ We'll let you know once it's on its way, along with tracking details. Thanks so 
 
 Scorbunny Cards`;
 
-    const fd = new FormData();
-    fd.append('email', order.email);
-    fd.append('Order Number', order.orderNumber);
-    fd.append('Customer Name', order.name);
-    fd.append('Status', 'Payment received — order marked as being prepared');
-    fd.append('_subject', `Order ${order.orderNumber} marked as paid & prepared`);
-    fd.append('_template', 'table');
-    fd.append('_captcha', 'false');
-    fd.append('_autoresponse', message);
-
     try{
-        const res = await fetch(`https://formsubmit.co/ajax/${ORDER_EMAIL}`, { method:'POST', body: fd });
-        let data = null;
-        try{ data = await res.json(); }catch(e){ /* non-JSON response */ }
-        if(!res.ok) throw new Error((data && data.message) || 'Request failed');
+        await submitViaHiddenForm({
+            email: order.email,
+            'Order Number': order.orderNumber,
+            'Customer Name': order.name,
+            'Status': 'Payment received — order marked as being prepared',
+            '_subject': `Order ${order.orderNumber} marked as paid & prepared`,
+            '_template': 'table',
+            '_captcha': 'false',
+            '_autoresponse': message
+        });
 
         order.emailSent = true;
-        order.serverNote = (data && data.message) ? data.message : '';
+        order.serverNote = 'Submitted via form POST — delivery not confirmed by the browser, check with the customer if unsure.';
         saveOrders();
-        logHistory(`"Being prepared" email sent for order ${order.orderNumber} to ${order.email}.${order.serverNote ? ' Server said: "'+order.serverNote+'"' : ''}`);
+        logHistory(`"Being prepared" email submitted for order ${order.orderNumber} to ${order.email}.`);
         renderOrders();
     } catch(err){
         logHistory(`FAILED to send "being prepared" email for order ${order.orderNumber} to ${order.email}. (${err.message || err})`);
