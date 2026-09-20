@@ -180,7 +180,7 @@ td.ord-email { color: var(--ink-soft); }
 <script>
 /* ─── CONFIG ─── */
 const ORDER_EMAIL = "scorbunnycards@gmail.com";     // your inbox — also gets a CC of every "being prepared" email sent
-const ADMIN_PASSCODE = "SCORBUNNY1234.";            // ⚠️ change this before using — see note below
+const ADMIN_PASSCODE = "CHANGE_ME_1234";            // ⚠️ change this before using — see note below
 const MAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyhYEV4yiSLrn0Po4dwjoXEAeU90HL71TwD_NxbiGYB3E1AV0lSt1JXMKFZUTdxF5B9/exec";
 
 /* ─── surface any JS error as a visible alert instead of failing silently ─── */
@@ -195,22 +195,26 @@ document.getElementById('ordEmailDisplay').textContent = ORDER_EMAIL;
    account — no third-party relay to get blocked by a network filter, and
    no CAPTCHA gate silently swallowing the customer's copy the way
    FormSubmit's autoresponse did.
-   Note: the Content-Type is deliberately text/plain, not application/json —
-   that keeps this a CORS "simple request" so the browser doesn't send a
-   preflight OPTIONS request, which Apps Script Web Apps don't handle. */
+   Apps Script Web Apps respond via an internal redirect that browsers
+   often refuse to expose to fetch() under CORS, even with access set to
+   "Anyone" — this shows up as a bare "Failed to fetch" with no further
+   detail. The standard workaround is mode:'no-cors': the request still
+   goes through and the script still runs (and sends the email), but the
+   response becomes unreadable ("opaque") — so we can no longer tell from
+   the browser whether it actually succeeded server-side. */
 async function sendMail(to, subject, body, cc){
     if(!MAIL_SCRIPT_URL || MAIL_SCRIPT_URL.indexOf('PASTE_YOUR') === 0){
         throw new Error('MAIL_SCRIPT_URL is not set yet — paste your deployed Apps Script URL into the CONFIG section of this page.');
     }
-    const res = await fetch(MAIL_SCRIPT_URL, {
+    await fetch(MAIL_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ to, subject, body, cc: cc || '' })
     });
-    let data = null;
-    try{ data = await res.json(); }catch(e){ /* non-JSON response */ }
-    if(!res.ok || (data && data.error)) throw new Error((data && data.error) || ('HTTP ' + res.status));
-    return data;
+    // no-cors responses are opaque — we can't read status/body, so a
+    // resolved promise here only means the request was sent, not that
+    // Gmail actually delivered it. Check your Gmail "Sent" folder to confirm.
 }
 
 /* ─── one-click test email, sent to a real DIFFERENT inbox so you can verify actual customer delivery ─── */
@@ -240,7 +244,7 @@ document.getElementById('testEmailBtn').addEventListener('click', async ()=>{
             'Scorbunny Admin — test email',
             'This is a test email from the Scorbunny Cards admin page. If you got this at ' + recipient + ', customer emails are working correctly.'
         );
-        msg.textContent = 'Sent! Check ' + recipient + ' (and its spam folder) — it should arrive within seconds.';
+        msg.textContent = 'Request sent — check ' + recipient + ' (and spam) in a moment. Also check the Sent folder of scorbunnycards@gmail.com to confirm it actually went out.';
         msg.className = 'msg success';
     } catch(err){
         msg.textContent = 'Failed to send: ' + (err.message || err);
@@ -473,7 +477,7 @@ Scorbunny Cards`;
         );
 
         order.emailSent = true;
-        order.serverNote = 'Sent via Gmail — delivered to ' + order.email + ' (cc\'d to ' + ORDER_EMAIL + ').';
+        order.serverNote = 'Request sent — delivery not confirmed by the browser (Google quirk), check scorbunnycards@gmail.com Sent folder or with the customer if unsure.';
         saveOrders();
         logHistory(`"Being prepared" email sent for order ${order.orderNumber} to ${order.email}.`);
         renderOrders();
