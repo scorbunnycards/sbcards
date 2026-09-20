@@ -130,13 +130,13 @@ td.ord-email { color: var(--ink-soft); }
             <span class="msg" id="testEmailMsg" style="display:inline; margin-left:10px;"></span>
         </p>
 
-        <form class="add-order-form" id="addOrderForm">
-            <div class="field"><label for="newOrdNumber">Order number</label><input type="text" id="newOrdNumber" placeholder="SB-260920-1234" required></div>
-            <div class="field"><label for="newOrdName">Customer name</label><input type="text" id="newOrdName" required></div>
-            <div class="field"><label for="newOrdEmail">Customer email</label><input type="email" id="newOrdEmail" required></div>
-            <button type="submit" class="btn-primary">+ Add order</button>
-        </form>
-        <p class="msg error" id="addOrderMsg"></p>
+        <div class="add-order-form" id="addOrderForm">
+            <div class="field"><label for="newOrdNumber">Order number</label><input type="text" id="newOrdNumber" placeholder="SB-260920-1234"></div>
+            <div class="field"><label for="newOrdName">Customer name</label><input type="text" id="newOrdName"></div>
+            <div class="field"><label for="newOrdEmail">Customer email</label><input type="email" id="newOrdEmail"></div>
+            <button type="button" class="btn-primary" id="addOrderBtn">+ Add order</button>
+        </div>
+        <p class="msg" id="addOrderMsg"></p>
 
         <div class="orders-wrap">
             <table id="ordersTable">
@@ -170,6 +170,7 @@ td.ord-email { color: var(--ink-soft); }
         </div>
 
         <a href="#" class="small-link" id="lockLink">Lock this page</a>
+        <p class="small-link" style="margin-top:6px;">build: admin-r4</p>
     </div>
 </div>
 
@@ -370,10 +371,10 @@ function renderOrders(){
 }
 
 /* ─── add order ─── */
-document.getElementById('addOrderForm').addEventListener('submit', e=>{
-    e.preventDefault();
+function addOrder(){
     const addMsg = document.getElementById('addOrderMsg');
     addMsg.textContent = '';
+    addMsg.className = 'msg';
 
     const orderNumber = document.getElementById('newOrdNumber').value.trim();
     const name = document.getElementById('newOrdName').value.trim();
@@ -381,10 +382,12 @@ document.getElementById('addOrderForm').addEventListener('submit', e=>{
 
     if(!orderNumber || !name || !email){
         addMsg.textContent = 'Please fill in all three fields (order number, name, and email) before adding.';
+        addMsg.className = 'msg error';
         return;
     }
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-        addMsg.textContent = 'That email address doesn\'t look right — double check it.';
+        addMsg.textContent = "That email address doesn't look right — double check it.";
+        addMsg.className = 'msg error';
         return;
     }
 
@@ -392,8 +395,21 @@ document.getElementById('addOrderForm').addEventListener('submit', e=>{
     saveOrders();
     logHistory(`Order ${orderNumber} (${name}, ${email}) added to the list.`);
     renderOrders();
-    e.target.reset();
+
+    document.getElementById('newOrdNumber').value = '';
+    document.getElementById('newOrdName').value = '';
+    document.getElementById('newOrdEmail').value = '';
     document.getElementById('newOrdNumber').focus();
+
+    addMsg.textContent = `Added order ${orderNumber} — you'll see it in the table below.`;
+    addMsg.className = 'msg success';
+}
+
+document.getElementById('addOrderBtn').addEventListener('click', addOrder);
+['newOrdNumber','newOrdName','newOrdEmail'].forEach(id=>{
+    document.getElementById(id).addEventListener('keydown', e=>{
+        if(e.key === 'Enter'){ e.preventDefault(); addOrder(); }
+    });
 });
 
 /* ─── send the "being prepared" email for one order ─── */
