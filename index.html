@@ -124,10 +124,13 @@ td.ord-email { color: var(--ink-soft); }
         </div>
 
         <p class="setup-note" id="activationNote">
-            <strong>One-time setup:</strong> the first time this page sends an email from a new device or after moving it to a new web address, FormSubmit needs you to confirm it. Click the button below, then check <strong id="ordEmailDisplay"></strong> (and spam) for a message from FormSubmit and click "Activate Form" in it. Until you do that, emails sent from here won't actually arrive.
+            <strong>One-time setup:</strong> the first time this page sends an email from a new device or after moving it to a new web address, FormSubmit needs you to confirm it. Enter a <strong>different email you can check</strong> (not your shop inbox) below and send a test — this proves emails actually reach a customer, not just you. Then check that inbox (and spam, and <strong id="ordEmailDisplay"></strong> too) for a message from FormSubmit and click "Activate Form" if you see one.
             <br><br>
-            <button type="button" class="btn-secondary" id="testEmailBtn">Send test email now</button>
-            <span class="msg" id="testEmailMsg" style="display:inline; margin-left:10px;"></span>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <input type="email" id="testEmailRecipient" placeholder="a test address you can check, e.g. yourpersonal@email.com" style="flex:1; min-width:220px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); background: var(--surface); color: var(--ink); font-family:'Outfit', sans-serif; font-size:0.85rem;">
+                <button type="button" class="btn-secondary" id="testEmailBtn">Send test to that address</button>
+            </div>
+            <span class="msg" id="testEmailMsg" style="display:block; margin-top:8px;"></span>
         </p>
 
         <div class="add-order-form" id="addOrderForm">
@@ -186,33 +189,47 @@ window.addEventListener('error', function(e){
 
 document.getElementById('ordEmailDisplay').textContent = ORDER_EMAIL;
 
-/* ─── one-click test email, independent of the orders list ─── */
+/* ─── one-click test email, sent to a real DIFFERENT inbox so you can verify actual customer delivery ─── */
 document.getElementById('testEmailBtn').addEventListener('click', async ()=>{
     const btn = document.getElementById('testEmailBtn');
     const msg = document.getElementById('testEmailMsg');
-    btn.disabled = true; btn.textContent = 'Sending...';
+    const recipient = document.getElementById('testEmailRecipient').value.trim();
+
     msg.textContent = ''; msg.className = 'msg';
 
+    if(!recipient){
+        msg.textContent = 'Enter an email address to test with first (use one that is NOT ' + ORDER_EMAIL + ', so you can prove it reaches someone else).';
+        msg.className = 'msg error';
+        return;
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)){
+        msg.textContent = "That doesn't look like a valid email address.";
+        msg.className = 'msg error';
+        return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Sending...';
+
     const fd = new FormData();
-    fd.append('email', ORDER_EMAIL);
-    fd.append('Test', 'This is a test send from the admin page.');
+    fd.append('email', recipient);
+    fd.append('Test', 'This is a test send from the admin page, addressed to ' + recipient + '.');
     fd.append('_subject', 'Scorbunny Admin — test email');
     fd.append('_template', 'table');
     fd.append('_captcha', 'false');
-    fd.append('_autoresponse', 'This is a test email from your Scorbunny Cards admin page. If you got this, FormSubmit is working.');
+    fd.append('_autoresponse', 'This is a test email from the Scorbunny Cards admin page. If you got this at ' + recipient + ', customer emails are working correctly.');
 
     try{
         const res = await fetch(`https://formsubmit.co/ajax/${ORDER_EMAIL}`, { method:'POST', body: fd });
         let data = null;
         try{ data = await res.json(); }catch(e){}
         if(!res.ok) throw new Error((data && data.message) || ('HTTP ' + res.status));
-        msg.textContent = 'Sent! Server said: "' + ((data && data.message) || 'OK') + '" — now check ' + ORDER_EMAIL + ' (and spam).';
+        msg.textContent = 'Sent! Server said: "' + ((data && data.message) || 'OK') + '" — now check ' + recipient + ' (and its spam folder).';
         msg.className = 'msg success';
     } catch(err){
         msg.textContent = 'Failed to send: ' + (err.message || err);
         msg.className = 'msg error';
     } finally {
-        btn.disabled = false; btn.textContent = 'Send test email now';
+        btn.disabled = false; btn.textContent = 'Send test to that address';
     }
 });
 
