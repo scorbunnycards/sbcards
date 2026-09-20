@@ -124,7 +124,10 @@ td.ord-email { color: var(--ink-soft); }
         </div>
 
         <p class="setup-note" id="activationNote">
-            <strong>One-time setup:</strong> the first time this page sends an email from a new device or after moving it to a new web address, FormSubmit needs you to confirm it. Send one email below, then check <strong id="ordEmailDisplay"></strong> (and spam) for a message from FormSubmit and click "Activate Form" in it. Until you do that, emails sent from here won't actually arrive, even though this page will say they were sent.
+            <strong>One-time setup:</strong> the first time this page sends an email from a new device or after moving it to a new web address, FormSubmit needs you to confirm it. Click the button below, then check <strong id="ordEmailDisplay"></strong> (and spam) for a message from FormSubmit and click "Activate Form" in it. Until you do that, emails sent from here won't actually arrive.
+            <br><br>
+            <button type="button" class="btn-secondary" id="testEmailBtn">Send test email now</button>
+            <span class="msg" id="testEmailMsg" style="display:inline; margin-left:10px;"></span>
         </p>
 
         <form class="add-order-form" id="addOrderForm">
@@ -133,6 +136,7 @@ td.ord-email { color: var(--ink-soft); }
             <div class="field"><label for="newOrdEmail">Customer email</label><input type="email" id="newOrdEmail" required></div>
             <button type="submit" class="btn-primary">+ Add order</button>
         </form>
+        <p class="msg error" id="addOrderMsg"></p>
 
         <div class="orders-wrap">
             <table id="ordersTable">
@@ -172,9 +176,44 @@ td.ord-email { color: var(--ink-soft); }
 <script>
 /* ─── CONFIG ─── */
 const ORDER_EMAIL = "scorbunnycards@gmail.com";     // your inbox — also gets a record of every "being prepared" email sent
-const ADMIN_PASSCODE = "CHANGE_ME_1234";            // ⚠️ change this before using — see note below
+const ADMIN_PASSCODE = "Scorbunny1234.";            // ⚠️ change this before using — see note below
+
+/* ─── surface any JS error as a visible alert instead of failing silently ─── */
+window.addEventListener('error', function(e){
+    alert('Something on this page broke:\n\n' + (e.message || e) + '\n\nTake a screenshot of this and send it over.');
+});
 
 document.getElementById('ordEmailDisplay').textContent = ORDER_EMAIL;
+
+/* ─── one-click test email, independent of the orders list ─── */
+document.getElementById('testEmailBtn').addEventListener('click', async ()=>{
+    const btn = document.getElementById('testEmailBtn');
+    const msg = document.getElementById('testEmailMsg');
+    btn.disabled = true; btn.textContent = 'Sending...';
+    msg.textContent = ''; msg.className = 'msg';
+
+    const fd = new FormData();
+    fd.append('email', ORDER_EMAIL);
+    fd.append('Test', 'This is a test send from the admin page.');
+    fd.append('_subject', 'Scorbunny Admin — test email');
+    fd.append('_template', 'table');
+    fd.append('_captcha', 'false');
+    fd.append('_autoresponse', 'This is a test email from your Scorbunny Cards admin page. If you got this, FormSubmit is working.');
+
+    try{
+        const res = await fetch(`https://formsubmit.co/ajax/${ORDER_EMAIL}`, { method:'POST', body: fd });
+        let data = null;
+        try{ data = await res.json(); }catch(e){}
+        if(!res.ok) throw new Error((data && data.message) || ('HTTP ' + res.status));
+        msg.textContent = 'Sent! Server said: "' + ((data && data.message) || 'OK') + '" — now check ' + ORDER_EMAIL + ' (and spam).';
+        msg.className = 'msg success';
+    } catch(err){
+        msg.textContent = 'Failed to send: ' + (err.message || err);
+        msg.className = 'msg error';
+    } finally {
+        btn.disabled = false; btn.textContent = 'Send test email now';
+    }
+});
 
 /* ─── very light client-side gate ───
    This only hides the page from casual visitors — it is NOT real security.
@@ -333,10 +372,21 @@ function renderOrders(){
 /* ─── add order ─── */
 document.getElementById('addOrderForm').addEventListener('submit', e=>{
     e.preventDefault();
+    const addMsg = document.getElementById('addOrderMsg');
+    addMsg.textContent = '';
+
     const orderNumber = document.getElementById('newOrdNumber').value.trim();
     const name = document.getElementById('newOrdName').value.trim();
     const email = document.getElementById('newOrdEmail').value.trim();
-    if(!orderNumber || !name || !email) return;
+
+    if(!orderNumber || !name || !email){
+        addMsg.textContent = 'Please fill in all three fields (order number, name, and email) before adding.';
+        return;
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        addMsg.textContent = 'That email address doesn\'t look right — double check it.';
+        return;
+    }
 
     orders.unshift({ orderNumber, name, email, paid:false, emailSent:false, serverNote:'' });
     saveOrders();
