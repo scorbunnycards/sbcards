@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Admin | Scorbunny Cards</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+    --cream: #131127; --lavender-deep: #8b7ff2; --rose-deep: #d66bd9;
+    --purple-glow: rgba(139,127,242,0.3);
+    --ink: #f2eefb; --ink-soft: rgba(242,238,251,0.66); --ink-faint: rgba(242,238,251,0.42);
+    --surface: rgba(255,255,255,0.045); --surface-strong: rgba(255,255,255,0.09);
+    --border: rgba(242,238,251,0.12); --ease-out: cubic-bezier(0.16,1,0.3,1);
+    --good: #7fe0a8; --bad: #f28b8b;
+}
+*,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
+body {
+    background: var(--cream); color: var(--ink); font-family:'Outfit', sans-serif;
+    min-height:100vh; padding: 40px 20px;
+}
+.wrap { max-width:900px; margin:0 auto; }
+.panel { width:100%; background: var(--surface); border:1px solid var(--border); border-radius:22px; padding: 32px; }
+.gate-wrap { min-height:80vh; display:flex; align-items:center; justify-content:center; }
+.gate-wrap .panel { max-width:420px; }
+h1 { font-family:'Fraunces', serif; font-weight:600; font-size:1.5rem; margin-bottom:6px; }
+.sub { font-size:0.82rem; color: var(--ink-faint); margin-bottom:22px; line-height:1.5; }
+.field { margin-bottom:0; }
+.field label { display:block; font-size:0.68rem; letter-spacing:1.5px; text-transform:uppercase; color: var(--ink-faint); margin-bottom:6px; }
+.field input {
+    width:100%; padding:11px 14px; border-radius:12px; border:1px solid var(--border);
+    background: var(--surface); color: var(--ink); font-family:'Outfit', sans-serif; font-size:0.88rem; outline:none;
+    transition: border-color 0.25s;
+}
+.field input:focus { border-color: var(--lavender-deep); }
+button { cursor:pointer; font-family:'Outfit', sans-serif; }
+.btn-primary {
+    padding:13px 22px; border-radius:100px; border:none;
+    background: var(--lavender-deep); color:#131127; font-weight:700; font-size:0.85rem;
+    letter-spacing:0.3px; transition: transform 0.3s var(--ease-out), box-shadow 0.3s, opacity 0.3s;
+}
+.btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 26px var(--purple-glow); }
+.btn-primary:disabled { opacity:0.45; cursor:default; transform:none; box-shadow:none; }
+.gate input { text-align:center; letter-spacing:3px; }
+.msg { font-size:0.82rem; margin-top:10px; line-height:1.5; min-height:1em; }
+.msg.success { color: var(--good); }
+.msg.error { color: var(--bad); }
+
+/* add-order form */
+.add-order-form { display:grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap:10px; align-items:end; margin-bottom:8px; }
+.add-order-form .btn-primary { white-space:nowrap; }
+@media (max-width: 720px) { .add-order-form { grid-template-columns:1fr; } }
+
+/* orders table */
+.orders-wrap { margin-top:28px; overflow-x:auto; }
+table { width:100%; border-collapse:collapse; min-width:640px; }
+th { text-align:left; font-size:0.66rem; letter-spacing:1.5px; text-transform:uppercase; color: var(--ink-faint); padding:10px 12px; border-bottom:1px solid var(--border); }
+td { padding:12px; border-bottom:1px solid var(--border); font-size:0.85rem; vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+td.ord-num { font-family:'Fraunces', serif; font-weight:600; color: var(--ink); white-space:nowrap; }
+td.ord-email { color: var(--ink-soft); }
+.paid-checkbox { width:20px; height:20px; accent-color: var(--good); cursor:pointer; }
+.send-btn {
+    padding:9px 16px; border-radius:100px; border:1px solid var(--border);
+    background: var(--surface-strong); color: var(--ink); font-weight:700; font-size:0.74rem;
+    letter-spacing:0.3px; transition: transform 0.25s var(--ease-out), box-shadow 0.25s, border-color 0.25s, opacity 0.25s;
+}
+.send-btn:hover:not(:disabled) { border-color: rgba(180,142,224,0.4); box-shadow: 0 8px 20px var(--purple-glow); transform: translateY(-1px); }
+.send-btn:disabled { opacity:0.4; cursor:default; transform:none; box-shadow:none; }
+.sent-tag { color: var(--good); font-size:0.76rem; font-weight:600; }
+.remove-btn { background:none; border:none; color: var(--ink-faint); font-size:0.8rem; text-decoration:underline; cursor:pointer; }
+.remove-btn:hover { color: var(--bad); }
+.empty-note { text-align:center; padding:30px 10px; color: var(--ink-faint); font-size:0.85rem; }
+.small-link { display:inline-block; margin-top:22px; font-size:0.76rem; color: var(--ink-faint); text-decoration:none; }
+.small-link:hover { color: var(--ink-soft); }
+.top-row { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div class="wrap gate-wrap" id="gateWrap">
+    <div class="panel">
+        <h1>Order Admin</h1>
+        <p class="sub">Enter the admin passcode to continue.</p>
+        <div class="field gate">
+            <input type="password" id="gateInput" placeholder="Passcode" autocomplete="off">
+        </div>
+        <br>
+        <button type="button" class="btn-primary" id="gateBtn" style="width:100%;">Unlock</button>
+        <p class="msg error" id="gateMsg"></p>
+    </div>
+</div>
+
+<div class="wrap" id="mainWrap" style="display:none;">
+    <div class="panel">
+        <div class="top-row">
+            <div>
+                <h1>Orders</h1>
+                <p class="sub">Add each order as it comes in by email, tick it off once you've been paid, then send the "being prepared" email.</p>
+            </div>
+        </div>
+
+        <form class="add-order-form" id="addOrderForm">
+            <div class="field"><label for="newOrdNumber">Order number</label><input type="text" id="newOrdNumber" placeholder="SB-260920-1234" required></div>
+            <div class="field"><label for="newOrdName">Customer name</label><input type="text" id="newOrdName" required></div>
+            <div class="field"><label for="newOrdEmail">Customer email</label><input type="email" id="newOrdEmail" required></div>
+            <button type="submit" class="btn-primary">+ Add order</button>
+        </form>
+
+        <div class="orders-wrap">
+            <table id="ordersTable">
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Paid</th>
+                        <th>"Being Prepared" email</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="ordersBody"></tbody>
+            </table>
+            <p class="empty-note" id="emptyNote" style="display:none;">No orders yet — add one above when you get an order notification email.</p>
+        </div>
+
+        <a href="#" class="small-link" id="lockLink">Lock this page</a>
+    </div>
+</div>
+
+<script>
+/* ─── CONFIG ─── */
+const ORDER_EMAIL = "scorbunnycards@gmail.com";     // your inbox — also gets a record of every "being prepared" email sent
+const ADMIN_PASSCODE = "CHANGE_ME_1234";            // ⚠️ change this before using — see note below
+
+/* ─── very light client-side gate ───
+   This only hides the page from casual visitors — it is NOT real security.
+   Anyone who views this page's source can read the passcode. Don't put
+   anything truly sensitive behind it, and don't share this page's link publicly. */
+const gateWrap = document.getElementById('gateWrap');
+const mainWrap = document.getElementById('mainWrap');
+const gateInput = document.getElementById('gateInput');
+const gateMsg = document.getElementById('gateMsg');
+
+function unlock(){
+    gateWrap.style.display = 'none';
+    mainWrap.style.display = 'block';
+    try{ sessionStorage.setItem('sb_admin_unlocked', '1'); }catch(e){}
+    renderOrders();
+}
+if(sessionStorage.getItem('sb_admin_unlocked') === '1'){ unlock(); }
+
+document.getElementById('gateBtn').addEventListener('click', ()=>{
+    if(gateInput.value === ADMIN_PASSCODE){ unlock(); }
+    else { gateMsg.textContent = 'Wrong passcode.'; gateInput.value=''; gateInput.focus(); }
+});
+gateInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ document.getElementById('gateBtn').click(); } });
+
+document.getElementById('lockLink').addEventListener('click', e=>{
+    e.preventDefault();
+    try{ sessionStorage.removeItem('sb_admin_unlocked'); }catch(e){}
+    location.reload();
+});
+
+/* ─── orders list, stored in this browser only (localStorage) ───
+   This list lives only on this device/browser — it does not sync
+   automatically from your shop's checkout. Add each order here yourself
+   once you see the order-notification email land in your inbox. */
+let orders = [];
+try { orders = JSON.parse(localStorage.getItem('sb_admin_orders') || '[]'); } catch(e){ orders = []; }
+
+function saveOrders(){
+    try{ localStorage.setItem('sb_admin_orders', JSON.stringify(orders)); }catch(e){}
+}
+
+function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function renderOrders(){
+    const tbody = document.getElementById('ordersBody');
+    const emptyNote = document.getElementById('emptyNote');
+    const table = document.getElementById('ordersTable');
+
+    if(orders.length === 0){
+        table.style.display = 'none';
+        emptyNote.style.display = 'block';
+        return;
+    }
+    table.style.display = 'table';
+    emptyNote.style.display = 'none';
+
+    tbody.innerHTML = orders.map((o, i) => `
+        <tr data-idx="${i}">
+            <td class="ord-num">${escapeHtml(o.orderNumber)}</td>
+            <td>${escapeHtml(o.name)}</td>
+            <td class="ord-email">${escapeHtml(o.email)}</td>
+            <td><input type="checkbox" class="paid-checkbox" data-idx="${i}" ${o.paid ? 'checked' : ''}></td>
+            <td>
+                ${o.emailSent
+                    ? `<span class="sent-tag">Sent ✓</span>`
+                    : `<button type="button" class="send-btn" data-idx="${i}" ${o.paid ? '' : 'disabled'}>Send email</button>`
+                }
+            </td>
+            <td><button type="button" class="remove-btn" data-idx="${i}">Remove</button></td>
+        </tr>
+    `).join('');
+
+    tbody.querySelectorAll('.paid-checkbox').forEach(cb=>{
+        cb.addEventListener('change', e=>{
+            const idx = parseInt(e.target.dataset.idx, 10);
+            orders[idx].paid = e.target.checked;
+            saveOrders();
+            renderOrders();
+        });
+    });
+    tbody.querySelectorAll('.send-btn').forEach(btn=>{
+        btn.addEventListener('click', e=> sendPreparedEmail(parseInt(e.target.dataset.idx, 10)));
+    });
+    tbody.querySelectorAll('.remove-btn').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+            const idx = parseInt(e.target.dataset.idx, 10);
+            if(confirm(`Remove order ${orders[idx].orderNumber} from this list?`)){
+                orders.splice(idx, 1);
+                saveOrders();
+                renderOrders();
+            }
+        });
+    });
+}
+
+/* ─── add order ─── */
+document.getElementById('addOrderForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const orderNumber = document.getElementById('newOrdNumber').value.trim();
+    const name = document.getElementById('newOrdName').value.trim();
+    const email = document.getElementById('newOrdEmail').value.trim();
+    if(!orderNumber || !name || !email) return;
+
+    orders.unshift({ orderNumber, name, email, paid:false, emailSent:false });
+    saveOrders();
+    renderOrders();
+    e.target.reset();
+    document.getElementById('newOrdNumber').focus();
+});
+
+/* ─── send the "being prepared" email for one order ─── */
+async function sendPreparedEmail(idx){
+    const order = orders[idx];
+    if(!order || !order.paid) return;
+
+    const row = document.querySelector(`tr[data-idx="${idx}"]`);
+    const btn = row ? row.querySelector('.send-btn') : null;
+    if(btn){ btn.disabled = true; btn.textContent = 'Sending...'; }
+
+    const message =
+`Hi ${order.name},
+
+Good news — we've received your payment for order ${order.orderNumber} and it's now being prepared!
+
+We'll let you know once it's on its way, along with tracking details. Thanks so much for your order and your patience while it's made.
+
+Scorbunny Cards`;
+
+    const fd = new FormData();
+    fd.append('email', order.email);
+    fd.append('Order Number', order.orderNumber);
+    fd.append('Customer Name', order.name);
+    fd.append('Status', 'Payment received — order marked as being prepared');
+    fd.append('_subject', `Order ${order.orderNumber} marked as paid & prepared`);
+    fd.append('_template', 'table');
+    fd.append('_captcha', 'false');
+    fd.append('_autoresponse', message);
+
+    try{
+        const res = await fetch(`https://formsubmit.co/ajax/${ORDER_EMAIL}`, { method:'POST', body: fd });
+        if(!res.ok) throw new Error('Request failed');
+        order.emailSent = true;
+        saveOrders();
+        renderOrders();
+    } catch(err){
+        alert("Couldn't send that email — check your connection and try again.");
+        if(btn){ btn.disabled = false; btn.textContent = 'Send email'; }
+    }
+}
+</script>
+</body>
+</html>
