@@ -174,7 +174,7 @@ td.ord-email { color: var(--ink-soft); }
         </div>
 
         <a href="#" class="small-link" id="lockLink">Lock this page</a>
-        <p class="small-link" style="margin-top:6px;">build: admin-r4</p>
+        <p class="small-link" style="margin-top:6px;">build: admin-r5</p>
     </div>
 </div>
 
@@ -188,7 +188,7 @@ const EMAILJS_PUBLIC_KEY  = "laDCIJJMVDDHJxJsz";
 const EMAILJS_SERVICE_ID  = "service_7a2n73j";
 const EMAILJS_TEMPLATE_ID = "template_4n5dg0y";
 
-emailjs.init({ EMAILJS_PUBLIC_KEY });
+emailjs.init(EMAILJS_PUBLIC_KEY);
 
 /* ─── surface any JS error as a visible alert instead of failing silently ─── */
 window.addEventListener('error', function(e){
@@ -197,10 +197,34 @@ window.addEventListener('error', function(e){
 
 document.getElementById('ordEmailDisplay').textContent = ORDER_EMAIL;
 
+/* ─── orders list, stored in this browser only (localStorage) ───
+   This list lives only on this device/browser — it does not sync
+   automatically from your shop's checkout. Add each order here yourself
+   once you see the order-notification email land in your inbox.
+   NOTE: these are declared early, before the gate/auto-unlock code below,
+   because that code can call renderOrders()/renderHistory() immediately
+   if you're already unlocked this browser session — and referencing a
+   `let` variable before its declaration line throws a ReferenceError. */
+let orders = [];
+try { orders = JSON.parse(localStorage.getItem('sb_admin_orders') || '[]'); } catch(e){ orders = []; }
+
+let history = [];
+try { history = JSON.parse(localStorage.getItem('sb_admin_history') || '[]'); } catch(e){ history = []; }
+
+function saveOrders(){
+    try{ localStorage.setItem('sb_admin_orders', JSON.stringify(orders)); }catch(e){}
+}
+
+function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
 /* ─── send mail through EmailJS ───
    EmailJS is built specifically for sending real email from a static page
-   with no backend, and has proper CORS support (unlike our Apps Script
-   attempt), so this gives us a real success/failure response back. */
+   with no backend, and has proper CORS support, so this gives us a real
+   success/failure response back. */
 async function sendMail(to, subject, body, cc){
     if(!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.indexOf('PASTE_YOUR') === 0){
         throw new Error('EmailJS is not configured yet — paste your Public Key / Service ID / Template ID into the CONFIG section of this page.');
@@ -280,27 +304,7 @@ document.getElementById('lockLink').addEventListener('click', e=>{
     location.reload();
 });
 
-/* ─── orders list, stored in this browser only (localStorage) ───
-   This list lives only on this device/browser — it does not sync
-   automatically from your shop's checkout. Add each order here yourself
-   once you see the order-notification email land in your inbox. */
-let orders = [];
-try { orders = JSON.parse(localStorage.getItem('sb_admin_orders') || '[]'); } catch(e){ orders = []; }
-
-function saveOrders(){
-    try{ localStorage.setItem('sb_admin_orders', JSON.stringify(orders)); }catch(e){}
-}
-
-function escapeHtml(str){
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
-}
-
 /* ─── history log ─── */
-let history = [];
-try { history = JSON.parse(localStorage.getItem('sb_admin_history') || '[]'); } catch(e){ history = []; }
-
 function logHistory(text){
     history.unshift({ time: new Date().toISOString(), text });
     try{ localStorage.setItem('sb_admin_history', JSON.stringify(history)); }catch(e){}
