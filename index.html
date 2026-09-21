@@ -7,6 +7,7 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <style>
 :root {
     --cream: #131127; --lavender-deep: #8b7ff2; --rose-deep: #d66bd9;
@@ -124,7 +125,7 @@ td.ord-email { color: var(--ink-soft); }
         </div>
 
         <p class="setup-note" id="activationNote">
-            <strong>One-time setup:</strong> emails are sent through a small Google Apps Script tied to <strong id="ordEmailDisplay"></strong>. Make sure you've pasted your deployed script's URL into <code>MAIL_SCRIPT_URL</code> near the top of this page's code. Then enter a <strong>different email you can check</strong> below and send a test — this proves emails actually reach a customer, not just you.
+            <strong>One-time setup:</strong> emails are sent through EmailJS, connected to <strong id="ordEmailDisplay"></strong>. Make sure you've pasted your EmailJS Public Key, Service ID, and Template ID into the CONFIG section near the top of this page's code. Then enter a <strong>different email you can check</strong> below and send a test — this proves emails actually reach a customer, not just you.
             <br><br>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
                 <input type="email" id="testEmailRecipient" placeholder="a test address you can check, e.g. yourpersonal@email.com" style="flex:1; min-width:220px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); background: var(--surface); color: var(--ink); font-family:'Outfit', sans-serif; font-size:0.85rem;">
@@ -181,7 +182,13 @@ td.ord-email { color: var(--ink-soft); }
 /* ─── CONFIG ─── */
 const ORDER_EMAIL = "scorbunnycards@gmail.com";     // your inbox — also gets a CC of every "being prepared" email sent
 const ADMIN_PASSCODE = "CHANGE_ME_1234";            // ⚠️ change this before using — see note below
-const MAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyhYEV4yiSLrn0Po4dwjoXEAeU90HL71TwD_NxbiGYB3E1AV0lSt1JXMKFZUTdxF5B9/exec";
+
+/* EmailJS — from your EmailJS dashboard (emailjs.com) */
+const EMAILJS_PUBLIC_KEY  = "laDCIJJMVDDHJxJsz";
+const EMAILJS_SERVICE_ID  = "service_7a2n73j";
+const EMAILJS_TEMPLATE_ID = "template_4n5dg0y";
+
+emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 
 /* ─── surface any JS error as a visible alert instead of failing silently ─── */
 window.addEventListener('error', function(e){
@@ -190,31 +197,20 @@ window.addEventListener('error', function(e){
 
 document.getElementById('ordEmailDisplay').textContent = ORDER_EMAIL;
 
-/* ─── send mail through the Google Apps Script Web App ───
-   This sends real Gmail messages directly from ORDER_EMAIL's own Google
-   account — no third-party relay to get blocked by a network filter, and
-   no CAPTCHA gate silently swallowing the customer's copy the way
-   FormSubmit's autoresponse did.
-   Apps Script Web Apps respond via an internal redirect that browsers
-   often refuse to expose to fetch() under CORS, even with access set to
-   "Anyone" — this shows up as a bare "Failed to fetch" with no further
-   detail. The standard workaround is mode:'no-cors': the request still
-   goes through and the script still runs (and sends the email), but the
-   response becomes unreadable ("opaque") — so we can no longer tell from
-   the browser whether it actually succeeded server-side. */
+/* ─── send mail through EmailJS ───
+   EmailJS is built specifically for sending real email from a static page
+   with no backend, and has proper CORS support (unlike our Apps Script
+   attempt), so this gives us a real success/failure response back. */
 async function sendMail(to, subject, body, cc){
-    if(!MAIL_SCRIPT_URL || MAIL_SCRIPT_URL.indexOf('PASTE_YOUR') === 0){
-        throw new Error('MAIL_SCRIPT_URL is not set yet — paste your deployed Apps Script URL into the CONFIG section of this page.');
+    if(!EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY.indexOf('PASTE_YOUR') === 0){
+        throw new Error('EmailJS is not configured yet — paste your Public Key / Service ID / Template ID into the CONFIG section of this page.');
     }
-    await fetch(MAIL_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ to, subject, body, cc: cc || '' })
+    return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: to,
+        subject: subject,
+        message: body,
+        cc_email: cc || ''
     });
-    // no-cors responses are opaque — we can't read status/body, so a
-    // resolved promise here only means the request was sent, not that
-    // Gmail actually delivered it. Check your Gmail "Sent" folder to confirm.
 }
 
 /* ─── one-click test email, sent to a real DIFFERENT inbox so you can verify actual customer delivery ─── */
@@ -244,10 +240,10 @@ document.getElementById('testEmailBtn').addEventListener('click', async ()=>{
             'Scorbunny Admin — test email',
             'This is a test email from the Scorbunny Cards admin page. If you got this at ' + recipient + ', customer emails are working correctly.'
         );
-        msg.textContent = 'Request sent — check ' + recipient + ' (and spam) in a moment. Also check the Sent folder of scorbunnycards@gmail.com to confirm it actually went out.';
+        msg.textContent = 'Sent! Now check ' + recipient + ' (and its spam folder).';
         msg.className = 'msg success';
     } catch(err){
-        msg.textContent = 'Failed to send: ' + (err.message || err);
+        msg.textContent = 'Failed to send: ' + ((err && (err.text || err.message)) || err);
         msg.className = 'msg error';
     } finally {
         btn.disabled = false; btn.textContent = 'Send test to that address';
@@ -477,13 +473,14 @@ Scorbunny Cards`;
         );
 
         order.emailSent = true;
-        order.serverNote = 'Request sent — delivery not confirmed by the browser (Google quirk), check scorbunnycards@gmail.com Sent folder or with the customer if unsure.';
+        order.serverNote = 'Sent to ' + order.email + ' via EmailJS (cc\'d to ' + ORDER_EMAIL + ').';
         saveOrders();
         logHistory(`"Being prepared" email sent for order ${order.orderNumber} to ${order.email}.`);
         renderOrders();
     } catch(err){
-        logHistory(`FAILED to send "being prepared" email for order ${order.orderNumber} to ${order.email}. (${err.message || err})`);
-        alert("Couldn't send that email: " + (err.message || err) + "\n\nCheck that MAIL_SCRIPT_URL is set correctly near the top of this page's code.");
+        const errText = (err && (err.text || err.message)) || err;
+        logHistory(`FAILED to send "being prepared" email for order ${order.orderNumber} to ${order.email}. (${errText})`);
+        alert("Couldn't send that email: " + errText + "\n\nCheck that EmailJS is configured correctly near the top of this page's code.");
         if(btn){ btn.disabled = false; btn.textContent = 'Send email'; }
     }
 }
